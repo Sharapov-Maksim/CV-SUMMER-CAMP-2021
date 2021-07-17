@@ -1,7 +1,12 @@
 """
 Object detector based on Model API
 """
-
+import os
+os.add_dll_directory("C:\\Program Files (x86)\\Intel\\openvino_2021.3.394\\deployment_tools\\ngraph\\lib")
+os.add_dll_directory("C:\\Program Files (x86)\\Intel\\openvino_2021.3.394\\deployment_tools\\inference_engine\\external\\tbb\\bin")
+os.add_dll_directory("C:\\Program Files (x86)\\Intel\\openvino_2021.3.394\\deployment_tools\\inference_engine\\bin\\intel64\\Release")
+#os.add_dll_directory("C:\\Program Files (x86)\\Intel\\openvino_2021.3.394\\deployment_tools\\inference_engine\\external\\hddl\\bin")
+os.add_dll_directory("C:\\Program Files (x86)\\Intel\\openvino_2021.3.394\\opencv\\bin")
 import cv2
 import numpy as np
 from openvino.inference_engine import IECore
@@ -62,12 +67,20 @@ def build_argparser():
   
 def draw_detections(frame, detections, labels, threshold):
     size = frame.shape[:2]
-    for detection in detections:
+    print(size)
     
+    for detection in detections:
+        left = (int)(detection.xmin)
+        bottom = (int)(detection.ymin)
+        right = (int)(detection.xmax)
+        top = (int)(detection.ymax)
+        score = detection.score
+        id = detection.id
         # If score more than threshold, draw rectangle on the frame
-        
-        
-        pass
+        if score > threshold:
+            cv2.rectangle(frame, (left,bottom), (right, top), (0,0,250), 1)
+            cv2.putText(frame, "ID = #{} ".format(id) + labels[id], (left,bottom), 
+                        cv2.FONT_HERSHEY_COMPLEX, 0.45, (200,0,0), 1)
     return frame
 
 
@@ -76,36 +89,41 @@ def main():
                     level=log.INFO, stream=sys.stdout)
     args = build_argparser().parse_args()
     log.info("Start OpenVINO object detection")
-
+    with open(args.classes, 'r') as f:
+            labels_map = [x.strip() for x in f]
     # Initialize data input
-    
+    cap = open_images_capture(args.input, True)
     # Initialize OpenVINO
-    
+    ie = IECore()
     # Initialize Plugin configs
-    
+    plugin_configs = get_plugin_configs('CPU', 0, 0)
     # Load YOLOv3 model
-    
+    detector = models.YOLO(ie, pathlib.Path(args.model), labels=args.classes, threshold=args.prob_threshold, keep_aspect_ratio=True)
     # Initialize async pipeline
-
+    detector_pipeline = AsyncPipeline(ie, detector, plugin_configs, device='CPU', max_num_requests=1)
     while True:
 
         # Get one image 
+        img = cap.read()
         
-
         # Start processing frame asynchronously
+        frame_id = 0
+        detector_pipeline.submit_data(img,frame_id,{'frame':img,'start_time':0}) 
         
         # Wait for processing finished
+        detector_pipeline.await_any() 
         
         # Get detection result
-    
-        # Draw detections in the image
-    
-        # Show image and wait for key press
+        results, meta = detector_pipeline.get_result(frame_id)
         
+        # Draw detections in the image
+        frame = draw_detections(img, results, labels_map, args.prob_threshold)
+        
+        # Show image and wait for key press
+        cv2.imshow('Image with detections', frame)
         # Wait 1 ms and check pressed button to break the loop
-
-            
-        pass
+        if cv2.waitKey(1) & 0xFF == ord('q'): # выход по клавише 'Q'
+            break
         
     # Destroy all windows
     cv2.destroyAllWindows()

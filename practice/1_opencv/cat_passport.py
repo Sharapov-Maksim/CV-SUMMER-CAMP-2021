@@ -27,7 +27,7 @@ def make_cat_passport_image(input_image_path, haar_model_path):
     for (i, (x, y, w, h)) in enumerate(rects): 
         cv2.rectangle(image, (x, y), (x + w, y + h), (0, 0, 255), 2) 
         cv2.putText(image, "Cat #{}".format(i + 1), (x, y - 10), 
-            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2)
 
     # Display result image
     cv2.imshow("window_name", image)
